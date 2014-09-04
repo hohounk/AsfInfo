@@ -11,6 +11,49 @@ BITMAPINFOHEADER structure that corresponds to this stream. E.g. “Compression ID
 
 #include <string>
 #include <fstream>
+#include <vector>
+
+/* Keeping the ASF object definitions in here for now.
+ * In future if those are needed in more places they should be moved out to a separate header
+ */
+
+struct AsfHeader
+{
+	_GUID objectId;
+	uint64_t objectSize;
+	uint32_t numHeaderObjects;
+	uint8_t reserved1; // can be ignored
+	uint8_t reserved2; // != 0x02 -> "fail to source the content" -> exit
+};
+
+struct StreamFlags
+{
+	unsigned char streamNumber : 7;
+	uint8_t reserved;
+	unsigned char encrypted : 1;
+};
+
+struct StreamProperties
+{
+	_GUID objectId;
+	uint64_t objectSize;
+	_GUID streamType;	// If it's a video stream, print out compression ID
+	_GUID errorCorrectionType;
+	uint64_t timeOffset;
+	uint32_t timeSpecificDataLength;
+	uint32_t errorCorrectionDataLenght;
+	StreamFlags flags; // print out "stream # is encrypted if flag tells it is
+	uint32_t reserved;
+	// uint8_t* typeSpecificData; // <- needs to be extracted to .dat
+	// uint8_t* errorCorrectionData;
+};
+
+enum AsfObjectType {
+	ASF_Header = 0,
+	ASF_FileProperties,
+	ASF_StreamProperties,
+	ASF_Unknown
+};
 
 class AsfFile {
 public:
@@ -22,6 +65,11 @@ public:
 	void close();
 
 private:
+
+	// Input file to be analyzed
 	std::ifstream _input;
+
+	// Cached stream properties objects
+	std::vector<StreamProperties> _streamProperties;
 };
 

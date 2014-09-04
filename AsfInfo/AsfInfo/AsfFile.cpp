@@ -24,9 +24,15 @@ std::string guidToString(GUID guid) {
 
 GUID stringToGUID(const std::string& guid) {
 	GUID output;
-	const auto ret = sscanf_s(guid.c_str(), "{%8X-%4hX-%4hX-%2hX%2hX-%2hX%2hX%2hX%2hX%2hX%2hX}", &output.Data1, &output.Data2, &output.Data3, &output.Data4[0], &output.Data4[1], &output.Data4[2], &output.Data4[3], &output.Data4[4], &output.Data4[5], &output.Data4[6], &output.Data4[7]);
+	// Due to sscanf not being able to properly read stuff into 8-bit integers without trashing the stack I need to read in the last four bytes manually
+	int p4, p5, p6, p7;
+	const auto ret = sscanf_s(guid.c_str(), "{%8X-%4hX-%4hX-%2hX%2hX-%2hX%2hX%2hX%2hX%2hX%2hX}", &output.Data1, &output.Data2, &output.Data3, &output.Data4[0], &output.Data4[1], &output.Data4[2], &output.Data4[3], &p4, &p5, &p6, &p7);
 	if (ret != 11)
 		throw std::logic_error("Unvalid GUID, format should be {00000000-0000-0000-0000-000000000000}");
+	output.Data4[4] = p4;
+	output.Data4[5] = p5;
+	output.Data4[6] = p6;
+	output.Data4[7] = p7;
 	return output;
 }
 ///
@@ -41,47 +47,35 @@ GUID stringToGUID(const std::string& guid) {
 static const _GUID ASF_Header_Object = stringToGUID("{75B22630-668E-11CF-A6D9-00AA0062CE6C}");
 static const _GUID ASF_Simple_Index_Object = stringToGUID("{33000890-E5B1-11CF-89F4-00A0C90349CB}");
 
+static const _GUID ASF_File_Properties_Object = stringToGUID("{8CABDCA1-A947-11CF-8EE4-00C00C205365}");
+static const _GUID ASF_Stream_Properties_Object	 = stringToGUID("{B7DC0791-A9B7-11CF-8EE6-00C00C205365}");
+//ASF_Header_Extension_Object	5FBF03B5-A92E-11CF-8EE3-00C00C205365
 
 
-/* Keeping the definitions in here for now.
- * In future if those are needed in more places they should be moved out to a separate header
- */
 
-struct AsfHeader
+AsfObjectType getNextfObjectType(std::ifstream& in)
 {
-	_GUID objectId;
-	uint64_t objectSize;
-	uint32_t numHeaderObjects;
-	uint8_t reserved1; // can be ignored
-	uint8_t reserved2; // != 0x02 -> "fail to source the content" -> exit
-};
+	_GUID nextGUID;
+	auto pos = in.tellg();
+	in.read(reinterpret_cast<char*>(&nextGUID), sizeof(nextGUID));
+	in.seekg(pos);
 
-struct StreamFlags 
+	if (nextGUID == ASF_Header_Object)
+		return ASF_Header;
+	if (nextGUID == ASF_File_Properties_Object)
+		return ASF_FileProperties;
+	if (nextGUID == ASF_Stream_Properties_Object)
+		return ASF_StreamProperties;
+
+	return ASF_Unknown;
+}
+
+
+// Sizediff allows to read in StreamProperties that has variable-lenght fields inside it
+template<class Object>
+void getAsfObject(std::ifstream& file, Object& object, int sizediff = 0)
 {
-	unsigned char streamNumber : 7;
-	uint8_t reserved;
-	unsigned char encrypted : 1;
-};
-
-struct StreamPropertiesObject
-{
-	_GUID objectId;
-	uint64_t objectSize;
-	_GUID streamType;
-	_GUID errorCorrectionType;
-	uint64_t timeOffset;
-	uint32_t timeSpecificDataLength;
-	uint32_t errorCorrectionDataLenght;
-	StreamFlags flags;
-	uint32_t reserved;
-	// uint8_t* typeSpecificData;
-	// uint8_t* errorCorrectionData;
-};
-
-
-void getHeader(std::ifstream& file, AsfHeader& header)
-{
-	file.read(reinterpret_cast<char*>(&header), sizeof(AsfHeader));
+	file.read(reinterpret_cast<char*>(&object), sizeof(object) + sizediff);
 }
 
 AsfFile::~AsfFile(void)
@@ -102,11 +96,15 @@ void AsfFile::process()
 {
 	// get header
 	AsfHeader header;
-	getHeader(_input, header);
+	getAsfObject<AsfHeader>(_input, header);
 
 	std::cout << "Num header objects: " /*<< std::cout.hex*/ << header.numHeaderObjects << std::endl;
 	if (header.objectId != ASF_Header_Object)
 		throw std::exception("File not in ASF format");
+	if (header.reserved2 != 0x02)
+		throw std::exception("Failed to source the content");
+
+
 	// count streams
 	// loop over streams
 	//	output Type Specific Data to #.dat
