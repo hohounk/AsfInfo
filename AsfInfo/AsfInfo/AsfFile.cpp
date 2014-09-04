@@ -1,6 +1,7 @@
 #include "AsfFile.h"
 #include <fstream>
 #include <iostream>
+#include <array>
 
 /*
 typedef struct _GUID {
@@ -10,6 +11,37 @@ typedef struct _GUID {
   BYTE  Data4[8];
 } GUID;
 */
+
+namespace {
+
+// Taken from http://blog.tomaka17.com/2012/09/c-converting-guid-to-string-and-vice-versa/ with slight modifications
+///
+std::string guidToString(GUID guid) {
+	std::array<char,40> output;
+	_snprintf_s(output.data(), output.size(), 40, "{%08X-%04hX-%04hX-%02X%02X-%02X%02X%02X%02X%02X%02X}", guid.Data1, guid.Data2, guid.Data3, guid.Data4[0], guid.Data4[1], guid.Data4[2], guid.Data4[3], guid.Data4[4], guid.Data4[5], guid.Data4[6], guid.Data4[7]);
+	return std::string(output.data());
+}
+
+GUID stringToGUID(const std::string& guid) {
+	GUID output;
+	const auto ret = sscanf_s(guid.c_str(), "{%8X-%4hX-%4hX-%2hX%2hX-%2hX%2hX%2hX%2hX%2hX%2hX}", &output.Data1, &output.Data2, &output.Data3, &output.Data4[0], &output.Data4[1], &output.Data4[2], &output.Data4[3], &output.Data4[4], &output.Data4[5], &output.Data4[6], &output.Data4[7]);
+	if (ret != 11)
+		throw std::logic_error("Unvalid GUID, format should be {00000000-0000-0000-0000-000000000000}");
+	return output;
+}
+///
+
+//ASF_Index_Object	D6E229D3-35DA-11D1-9034-00A0C90349BE
+//ASF_Media_Object_Index_Object	FEB103F8-12AD-4C64-840F-2A1D2F7AD48C
+//ASF_Timecode_Index_Object	3CB73FD0-0C4A-4803-953D-EDF7B6228F0C
+
+
+};
+
+static const _GUID ASF_Header_Object = stringToGUID("{75B22630-668E-11CF-A6D9-00AA0062CE6C}");
+static const _GUID ASF_Simple_Index_Object = stringToGUID("{33000890-E5B1-11CF-89F4-00A0C90349CB}");
+
+
 
 /* Keeping the definitions in here for now.
  * In future if those are needed in more places they should be moved out to a separate header
@@ -72,8 +104,9 @@ void AsfFile::process()
 	AsfHeader header;
 	getHeader(_input, header);
 
-	std::cout << "Header object size: " /*<< std::cout.hex*/ << header.objectSize << std::endl;
-
+	std::cout << "Num header objects: " /*<< std::cout.hex*/ << header.numHeaderObjects << std::endl;
+	if (header.objectId != ASF_Header_Object)
+		throw std::exception("File not in ASF format");
 	// count streams
 	// loop over streams
 	//	output Type Specific Data to #.dat
