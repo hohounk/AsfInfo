@@ -14,11 +14,13 @@ BITMAPINFOHEADER structure that corresponds to this stream. E.g. “Compression ID
 
 class AsfFile {
 public:
-	AsfFile(void);
+	AsfFile(void) {}
+	~AsfFile(void);
+
 	void open(std::string filename);
 	void process();
 	void close();
-	~AsfFile(void);
+
 private:
 	std::ifstream _input;
 };

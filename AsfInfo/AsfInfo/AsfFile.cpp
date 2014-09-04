@@ -1,4 +1,6 @@
 #include "AsfFile.h"
+#include <fstream>
+#include <iostream>
 
 /*
 typedef struct _GUID {
@@ -45,17 +47,19 @@ struct StreamPropertiesObject
 };
 
 
-AsfFile::AsfFile(void)
+void getHeader(std::ifstream& file, AsfHeader& header)
 {
+	file.read(reinterpret_cast<char*>(&header), sizeof(AsfHeader));
 }
-
 
 AsfFile::~AsfFile(void)
 {
+	close();
 }
 
 void AsfFile::open(std::string filename)
 {
+	// Non-mmapped file for now. Get it working first, then optimize
 	_input.open(filename, std::ios::in);
 	if (!_input.good()) {
 		throw(std::exception("error opening file"));
@@ -65,6 +69,11 @@ void AsfFile::open(std::string filename)
 void AsfFile::process()
 {
 	// get header
+	AsfHeader header;
+	getHeader(_input, header);
+
+	std::cout << "Header object size: " /*<< std::cout.hex*/ << header.objectSize << std::endl;
+
 	// count streams
 	// loop over streams
 	//	output Type Specific Data to #.dat
@@ -76,5 +85,9 @@ void AsfFile::process()
 
 void AsfFile::close()
 {
+	// Assume any errors in the file stream have been detected earlier already
+	// so that closing would always succeed. If there were an error we couldn't 
+	// throw an exception anyway as this would be called from a destructor and
+	// throwing an exception from it would mess things up really bad
 	_input.close();
 }
