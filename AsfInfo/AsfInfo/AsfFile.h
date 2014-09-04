@@ -10,7 +10,7 @@ BITMAPINFOHEADER structure that corresponds to this stream. E.g. “Compression ID
 */
 
 #include <string>
-
+#include <fstream>
 
 class AsfFile {
 public:
@@ -19,5 +19,7 @@ public:
 	void process();
 	void close();
 	~AsfFile(void);
+private:
+	std::ifstream _input;
 };
 

@@ -9,6 +9,10 @@ typedef struct _GUID {
 } GUID;
 */
 
+/* Keeping the definitions in here for now.
+ * In future if those are needed in more places they should be moved out to a separate header
+ */
+
 struct AsfHeader
 {
 	_GUID objectId;
@@ -48,4 +52,29 @@ AsfFile::AsfFile(void)
 
 AsfFile::~AsfFile(void)
 {
+}
+
+void AsfFile::open(std::string filename)
+{
+	_input.open(filename, std::ios::in);
+	if (!_input.good()) {
+		throw(std::exception("error opening file"));
+	}
+}
+
+void AsfFile::process()
+{
+	// get header
+	// count streams
+	// loop over streams
+	//	output Type Specific Data to #.dat
+	//	if Encrypted Content Flag
+	//		print "stream encrypted
+	//	if Stream Type == video
+	//		print Compression ID
+}
+
+void AsfFile::close()
+{
+	_input.close();
 }
