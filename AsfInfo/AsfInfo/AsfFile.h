@@ -17,6 +17,13 @@ BITMAPINFOHEADER structure that corresponds to this stream. E.g. “Compression ID
  * In future if those are needed in more places they should be moved out to a separate header
  */
 
+// XXX: make it into a class hierarchy to get rid of D.R.Y?
+struct AsfBaseObject
+{
+	_GUID objectId;
+	uint64_t objectSize;
+};
+
 struct AsfHeader
 {
 	_GUID objectId;
@@ -65,11 +72,26 @@ public:
 	void close();
 
 private:
+	AsfObjectType getNextObjectType();
+
+	template<class Object>
+	const Object* getAsfObject(int sizediff = 0);
+
+	void processStreamProperties(const StreamProperties* prop);
+
 
 	// Input file to be analyzed
 	std::ifstream _input;
 
+	// memory mapped input file and current position in the file
+	char* _mappedFile;
+	size_t _streamPos;
+
+	// Handles needed for memory mapping
+	HANDLE _hMapping;
+	HANDLE _hFile;
+
 	// Cached stream properties objects
-	std::vector<StreamProperties> _streamProperties;
+	std::vector<const StreamProperties*> _streamProperties;
 };
 
