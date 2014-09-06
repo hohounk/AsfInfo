@@ -1,17 +1,7 @@
 #pragma once
 #include <Rpc.h>
 #include <cstdint>
-
-/*
-a. For all streams in the media file, the application extracts the Type Specific Data field of the **Stream Properties Object** into a file named #.dat, where # is the number of the stream.
-b. For any stream that is encrypted (as defined by the **Encrypted Content Flag** of the **Stream Properties Object**), the application writes a message to the console output. E.g. “Stream 2 is encrypted”.
-c. For any video stream (as defined by the **Stream Type** field of the **Stream Properties Object**), the application will write to the console the hex value of the Compression ID field in the 
-BITMAPINFOHEADER structure that corresponds to this stream. E.g. “Compression ID for stream 1 is 0x12345678”.
-*/
-
 #include <string>
-#include <fstream>
-#include <vector>
 
 
 // Structs need to be packed to be able to use sizeof().
@@ -26,14 +16,14 @@ BITMAPINFOHEADER structure that corresponds to this stream. E.g. “Compression ID
 PACK(
 struct AsfBaseObject
 {
-	_GUID objectId;
+	GUID objectId;
 	uint64_t objectSize;
 });
 
 PACK(
 struct AsfHeader
 {
-	_GUID objectId;
+	GUID objectId;
 	uint64_t objectSize;
 	uint32_t numHeaderObjects;
 	uint8_t reserved1; // can be ignored
@@ -41,7 +31,7 @@ struct AsfHeader
 });
 
 
-// XXX: can't really use it due to how bitfields aren't really all that usable :(
+// Need to split the 8-bit reserved data into two as C++ doesn't allow having part of a byte crossing a byte boundary.
 PACK(
 struct StreamFlags
 {
@@ -55,14 +45,14 @@ struct StreamFlags
 PACK(
 struct StreamPropertiesHeader
 {
-	_GUID objectId;
+	GUID objectId;
 	uint64_t objectSize;
-	_GUID streamType;	// If it's a video stream, print out compression ID
-	_GUID errorCorrectionType;
+	GUID streamType;
+	GUID errorCorrectionType;
 	uint64_t timeOffset;
 	uint32_t typeSpecificDataLength;
 	uint32_t errorCorrectionDataLenght;
-	StreamFlags flags; // print out "stream # is encrypted if flag tells it is
+	StreamFlags flags;
 	uint32_t reserved;
 });
 
@@ -70,16 +60,27 @@ struct StreamPropertiesHeader
 PACK(
 struct StreamProperties
 {
-	StreamPropertiesHeader* header;
-	uint8_t* typeSpecificData; // <- needs to be extracted to .dat
-	uint8_t* errorCorrectionData;
+	const StreamPropertiesHeader* header;
+	const uint8_t* typeSpecificData;
+	const uint8_t* errorCorrectionData;
+});
+
+
+PACK(
+struct VideoStreamData
+{
+	uint32_t encodedImageWidth;
+	uint32_t encodedImageHeight;
+	uint8_t reservedFlags;
+	uint16_t formatDataSize;
+	BITMAPINFOHEADER formatData;
 });
 
 
 enum AsfObjectType {
 	ASF_Header = 0,
-	ASF_FileProperties,
 	ASF_StreamProperties,
+	ASF_Video_Media,
 	ASF_Unknown
 };
 
@@ -93,16 +94,13 @@ public:
 	void close();
 
 private:
-	AsfObjectType getNextObjectType();
+	const AsfObjectType getNextObjectType() const;
 
 	template<class Object>
-	Object* getAsfObject(int sizediff = 0);
+	const Object* getAsfObject(const int sizediff = 0);
 
 	void processStreamProperties(const StreamProperties& prop);
-
-
-	// Input file to be analyzed
-	std::ifstream _input;
+	const uint32_t extractCompressionId(const StreamProperties& prop) const;
 
 	// memory mapped input file and current position in the file
 	uint8_t* _mappedFile;
@@ -111,8 +109,5 @@ private:
 	// Handles needed for memory mapping
 	HANDLE _hMapping;
 	HANDLE _hFile;
-
-	// Cached stream properties objects
-	std::vector<const StreamProperties*> _streamProperties;
 };
 
