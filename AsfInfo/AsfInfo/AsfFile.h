@@ -4,7 +4,8 @@
 #include <string>
 
 
-// Structs need to be packed to be able to use sizeof().
+// Structs need to be packed to be able to use sizeof() and to have it have the exact same structure as
+// the data is laid out in the file itself.
 #define PACK( Object ) __pragma( pack(push, 1) ) Object __pragma( pack(pop) )
 
 
@@ -31,7 +32,8 @@ struct AsfHeader
 });
 
 
-// Need to split the 8-bit reserved data into two as C++ doesn't allow having part of a byte crossing a byte boundary.
+// Need to split the 8-bit reserved data into two as C++ doesn't allow having part of a byte 
+// crossing a byte boundary.
 PACK(
 struct StreamFlags
 {

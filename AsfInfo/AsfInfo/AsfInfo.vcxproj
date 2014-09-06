@@ -139,9 +139,6 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <Text Include="ReadMe.txt" />
-  </ItemGroup>
-  <ItemGroup>
     <ClCompile Include="AsfFile.cpp" />
     <ClCompile Include="AsfInfo.cpp" />
   </ItemGroup>

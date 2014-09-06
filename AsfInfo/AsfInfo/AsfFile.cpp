@@ -7,13 +7,17 @@
 
 namespace {
 
-// Taken from http://blog.tomaka17.com/2012/09/c-converting-guid-to-string-and-vice-versa/ with slight modifications
+// Taken from http://blog.tomaka17.com/2012/09/c-converting-guid-to-string-and-vice-versa/ with
+// slight modifications
 const GUID stringToGUID(const std::string& guid) {
 	GUID output;
-	// Due to sscanf not being able to properly read stuff into 8-bit integers without trashing the stack I need to read in the last four bytes manually
+	// Due to sscanf not being able to properly read stuff into 8-bit integers without trashing
+	// the stack I need to read in the last four bytes manually
 	// XXX: should it be last 8 bytes on 64bit? So far it looks like not.
 	int p4, p5, p6, p7;
-	const auto ret = sscanf_s(guid.c_str(), "{%8X-%4hX-%4hX-%2hX%2hX-%2hX%2hX%2hX%2hX%2hX%2hX}", &output.Data1, &output.Data2, &output.Data3, &output.Data4[0], &output.Data4[1], &output.Data4[2], &output.Data4[3], &p4, &p5, &p6, &p7);
+	const auto ret = sscanf_s(guid.c_str(), "{%8X-%4hX-%4hX-%2hX%2hX-%2hX%2hX%2hX%2hX%2hX%2hX}",
+		&output.Data1, &output.Data2, &output.Data3, &output.Data4[0], &output.Data4[1],
+		&output.Data4[2], &output.Data4[3], &p4, &p5, &p6, &p7);
 	if (ret != 11)
 		throw std::logic_error("Unvalid GUID, format should be {00000000-0000-0000-0000-000000000000}");
 	output.Data4[4] = p4;
@@ -44,7 +48,8 @@ const AsfObjectType AsfFile::getNextObjectType() const
 
 
 // Sizediff allows to read in StreamProperties that has variable-lenght fields inside it
-// XXX: not sure if moving stream pointer here is a good idea as it can make handling variable-lenght stuff a bit harder down the line
+// XXX: not sure if moving stream pointer here is a good idea as it can make handling variable-lenght
+// stuff a bit harder down the line
 template<class Object>
 const Object* AsfFile::getAsfObject(const int sizediff)
 {
@@ -109,7 +114,8 @@ void AsfFile::processStreamProperties(const StreamProperties& prop)
 
 	if (prop.header->streamType == ASF_Video_Media_Object) {
 		auto compressionId = extractCompressionId(prop);
-		std::cout << "Compression ID for stream #" << streamNum << " is 0x" << std::hex << compressionId << std::dec << std::endl;
+		std::cout << "Compression ID for stream #" << streamNum << " is 0x" << std::hex << compressionId 
+			<< std::dec << std::endl;
 	}
 }
 
@@ -130,7 +136,8 @@ void AsfFile::process()
 				StreamProperties prop;
 				prop.header = getAsfObject<StreamPropertiesHeader>();
 
-				// StreamProperties is variable-lenght, need to manually map the two fields to point to proper places
+				// StreamProperties is variable-lenght, need to manually map the two fields to point to
+				// proper places
 				prop.typeSpecificData = &_mappedFile[_streamPos];
 				_streamPos += prop.header->typeSpecificDataLength;
 				prop.errorCorrectionData = &_mappedFile[_streamPos];
@@ -141,7 +148,8 @@ void AsfFile::process()
 			}
 			default: {
 				const AsfBaseObject* o = getAsfObject<AsfBaseObject>();
-				_streamPos += o->objectSize - sizeof(AsfBaseObject); // sizeof(AsfBaseObject) bytes is already seeked in getAsfObject
+				// sizeof(AsfBaseObject) bytes is already seeked in getAsfObject
+				_streamPos += o->objectSize - sizeof(AsfBaseObject);
 			}
 		}
 	}
@@ -151,7 +159,7 @@ void AsfFile::process()
 void AsfFile::close()
 {
 	// Assume any errors in the file stream have been detected earlier already
-	// so that closing would always succeed. If there were an error we couldn't 
+	// so that closing would always succeed. If there were an error we couldn't
 	// throw an exception anyway as this would be called from a destructor and
 	// throwing an exception from it would mess things up really bad
 	UnmapViewOfFile(_mappedFile);

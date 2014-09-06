@@ -7,7 +7,8 @@ using namespace std;
 
 void usage()
 {
-	std::cout << "Analyses media files in Advanced Systems Format and prints out some parameters for those files." << std::endl;
+	std::cout << "Analyses media files in Advanced Systems Format and prints out some parameters for "
+		"those files." << std::endl;
 	std::cout << "Usage: AsfInfo.exe filename [filename]..." << std::endl;
 }
 
