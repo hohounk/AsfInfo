@@ -13,17 +13,24 @@ BITMAPINFOHEADER structure that corresponds to this stream. E.g. “Compression ID
 #include <fstream>
 #include <vector>
 
+
+// Structs need to be packed to be able to use sizeof().
+#define PACK( Object ) __pragma( pack(push, 1) ) Object __pragma( pack(pop) )
+
+
 /* Keeping the ASF object definitions in here for now.
  * In future if those are needed in more places they should be moved out to a separate header
  */
 
 // XXX: make it into a class hierarchy to get rid of D.R.Y?
+PACK(
 struct AsfBaseObject
 {
 	_GUID objectId;
 	uint64_t objectSize;
-};
+});
 
+PACK(
 struct AsfHeader
 {
 	_GUID objectId;
@@ -31,29 +38,43 @@ struct AsfHeader
 	uint32_t numHeaderObjects;
 	uint8_t reserved1; // can be ignored
 	uint8_t reserved2; // != 0x02 -> "fail to source the content" -> exit
-};
+});
 
+
+// XXX: can't really use it due to how bitfields aren't really all that usable :(
+PACK(
 struct StreamFlags
 {
 	unsigned char streamNumber : 7;
-	uint8_t reserved;
+	unsigned char reserved1 : 1;
+	unsigned char reserved2 : 7;
 	unsigned char encrypted : 1;
-};
+});
 
-struct StreamProperties
+
+PACK(
+struct StreamPropertiesHeader
 {
 	_GUID objectId;
 	uint64_t objectSize;
 	_GUID streamType;	// If it's a video stream, print out compression ID
 	_GUID errorCorrectionType;
 	uint64_t timeOffset;
-	uint32_t timeSpecificDataLength;
+	uint32_t typeSpecificDataLength;
 	uint32_t errorCorrectionDataLenght;
 	StreamFlags flags; // print out "stream # is encrypted if flag tells it is
 	uint32_t reserved;
-	// uint8_t* typeSpecificData; // <- needs to be extracted to .dat
-	// uint8_t* errorCorrectionData;
-};
+});
+
+
+PACK(
+struct StreamProperties
+{
+	StreamPropertiesHeader* header;
+	uint8_t* typeSpecificData; // <- needs to be extracted to .dat
+	uint8_t* errorCorrectionData;
+});
+
 
 enum AsfObjectType {
 	ASF_Header = 0,
@@ -75,16 +96,16 @@ private:
 	AsfObjectType getNextObjectType();
 
 	template<class Object>
-	const Object* getAsfObject(int sizediff = 0);
+	Object* getAsfObject(int sizediff = 0);
 
-	void processStreamProperties(const StreamProperties* prop);
+	void processStreamProperties(const StreamProperties& prop);
 
 
 	// Input file to be analyzed
 	std::ifstream _input;
 
 	// memory mapped input file and current position in the file
-	char* _mappedFile;
+	uint8_t* _mappedFile;
 	size_t _streamPos;
 
 	// Handles needed for memory mapping

@@ -2,6 +2,7 @@
 #include <fstream>
 #include <iostream>
 #include <array>
+#include <sstream>
 
 /*
 typedef struct _GUID {
@@ -96,9 +97,9 @@ AsfObjectType AsfFile::getNextObjectType()
 // Sizediff allows to read in StreamProperties that has variable-lenght fields inside it
 // XXX: not sure if moving stream pointer here is a good idea as it can make handling variable-lenght stuff a bit harder down the line
 template<class Object>
-const Object* AsfFile::getAsfObject(int sizediff)
+Object* AsfFile::getAsfObject(int sizediff)
 {
-	const Object* o = reinterpret_cast<const Object*>(&_mappedFile[_streamPos]);
+	Object* o = reinterpret_cast<Object*>(&_mappedFile[_streamPos]);
 	_streamPos += sizeof(Object) + sizediff;
 	return o;
 }
@@ -118,6 +119,7 @@ std::wstring s2ws (const std::string& s)
 
 void AsfFile::open(std::string filename)
 {
+	_streamPos = 0;
 	// CreateFileW requires wide strings
 	std::wstring fnameW = s2ws(filename);
 	_hFile = ::CreateFileW(fnameW.c_str(), GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, 0, NULL);
@@ -129,13 +131,23 @@ void AsfFile::open(std::string filename)
 	if (_hMapping == INVALID_HANDLE_VALUE)
 		throw std::exception("Error creating file mapping");
 
-	_mappedFile = reinterpret_cast<char*>(::MapViewOfFile(_hMapping, FILE_MAP_READ, 0, 0, 0));
+	_mappedFile = reinterpret_cast<uint8_t*>(::MapViewOfFile(_hMapping, FILE_MAP_READ, 0, 0, 0));
 	if (_mappedFile == NULL)
 		throw std::exception("Error creating file mapping view");
 }
 
-void AsfFile::processStreamProperties(const StreamProperties* prop)
+void AsfFile::processStreamProperties(const StreamProperties& prop)
 {
+	
+	auto streamNum = prop.header->flags.streamNumber;
+	if (prop.header->flags.encrypted == 0x01)
+		std::cout << "Stream #" << streamNum << " is encrypted" << std::endl;
+
+	std::stringstream filename;
+	filename << int(streamNum) << ".dat";
+	std::ofstream out(filename.str(), std::ios::trunc | std::ios::out | std::ios::binary);
+	std::cout <<out.rdstate() << " " << filename.str().c_str() << std::endl;
+	out.write(reinterpret_cast<const char*>(&prop.typeSpecificData), prop.header->typeSpecificDataLength);
 	//a. For all streams in the media file, the application extracts the Type Specific Data field of the **Stream Properties Object** into a file named #.dat, where # is the number of the stream.
 	//b. For any stream that is encrypted (as defined by the **Encrypted Content Flag** of the **Stream Properties Object**), the application writes a message to the console output. E.g. “Stream 2 is encrypted”.
 }
@@ -144,6 +156,7 @@ void AsfFile::process()
 {
 	// get header
 	const AsfHeader* header = getAsfObject<AsfHeader>();
+	std::cout << sizeof(StreamProperties) << " " << sizeof(StreamFlags) << std::endl;
 
 	std::cout << "Num header objects: " << header->numHeaderObjects << std::endl;
 	if (header->objectId != ASF_Header_Object)
@@ -151,10 +164,18 @@ void AsfFile::process()
 	if (header->reserved2 != 0x02)
 		throw std::exception("Failed to source the content");
 
-	for (int i = 0; i < header->numHeaderObjects; i++) {
+	for (uint32_t i = 0; i < header->numHeaderObjects; i++) {
 		switch (getNextObjectType()) {
 			case (ASF_StreamProperties): {
-				const StreamProperties* prop = getAsfObject<StreamProperties>();
+				// StreamProperties is variable-lenght, need to manually map the two fields to point to proper places
+				StreamProperties prop;
+				// XXX: What's with the compiler warning about truncation of the parameter?
+				prop.header = getAsfObject<StreamPropertiesHeader>();
+
+				prop.typeSpecificData = &_mappedFile[_streamPos];
+				_streamPos += prop.header->typeSpecificDataLength;
+				prop.errorCorrectionData = &_mappedFile[_streamPos];
+				_streamPos += prop.header->errorCorrectionDataLenght;
 				processStreamProperties(prop);
 				break;
 			}
