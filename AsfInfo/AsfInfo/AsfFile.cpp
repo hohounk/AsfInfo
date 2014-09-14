@@ -110,7 +110,7 @@ void AsfFile::processStreamProperties(const StreamProperties& prop)
 		s << "Error opening file" << filename.str();
 		throw std::exception(s.str().c_str());
 	}
-	out.write(reinterpret_cast<const char*>(&prop.typeSpecificData), prop.header->typeSpecificDataLength);
+	out.write(reinterpret_cast<const char*>(prop.typeSpecificData), prop.header->typeSpecificDataLength);
 
 	if (prop.header->streamType == ASF_Video_Media_Object) {
 		auto compressionId = extractCompressionId(prop);
